@@ -98,3 +98,22 @@ export interface AttendanceStats {
   attendancePercentage: number;
   averageWorkingHours: number;
 }
+
+export interface Admin {
+  id: string;
+  username: string;
+  password: string;
+  name: string;
+  email: string;
+  role: 'admin';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  name: string;
+  email: string;
+  role: 'admin';
+}

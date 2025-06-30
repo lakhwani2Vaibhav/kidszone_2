@@ -13,26 +13,45 @@ import {
   Search,
   MapPin,
   Timer,
-  BarChart3
+  BarChart3,
+  User
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Attendance as AttendanceType, AttendanceStats, Teacher } from '../types';
 import AttendanceForm from './AttendanceForm';
 import AttendanceStatsComponent from './AttendanceStats';
+import AttendanceQuickActions from './AttendanceQuickActions';
+import { attendanceApi } from '../services/api';
 
 const Attendance: React.FC = () => {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceType[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedTeacher, setSelectedTeacher] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'daily' | 'monthly' | 'stats'>('daily');
+  const [viewMode, setViewMode] = useState<'daily' | 'monthly' | 'stats' | 'quick'>('quick');
   const [loading, setLoading] = useState(false);
 
-  // Mock data for demonstration - in real app, this would come from API
   useEffect(() => {
-    // Generate mock attendance data
+    loadAttendanceData();
+  }, []);
+
+  const loadAttendanceData = async () => {
+    try {
+      setLoading(true);
+      const response = await attendanceApi.getAll();
+      setAttendanceRecords(response.data);
+    } catch (error) {
+      console.error('Error loading attendance data:', error);
+      // Generate mock data for demonstration
+      generateMockData();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateMockData = () => {
     const mockAttendance: AttendanceType[] = [];
     const today = new Date();
     
@@ -92,7 +111,7 @@ const Attendance: React.FC = () => {
     }
     
     setAttendanceRecords(mockAttendance);
-  }, [state.teachers]);
+  };
 
   const filteredRecords = attendanceRecords.filter(record => {
     const matchesDate = viewMode === 'daily' ? record.date === selectedDate : true;
@@ -162,6 +181,10 @@ const Attendance: React.FC = () => {
     alert('Export functionality would be implemented here');
   };
 
+  const handleAttendanceUpdate = () => {
+    loadAttendanceData();
+  };
+
   if (showForm) {
     return (
       <AttendanceForm
@@ -175,7 +198,7 @@ const Attendance: React.FC = () => {
     return (
       <AttendanceStatsComponent
         attendanceRecords={attendanceRecords}
-        onBack={() => setViewMode('daily')}
+        onBack={() => setViewMode('quick')}
       />
     );
   }
@@ -280,17 +303,18 @@ const Attendance: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      {/* View Mode Selector */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex items-center space-x-4 flex-1">
             <div className="flex items-center space-x-2">
               <Calendar className="w-5 h-5 text-gray-400" />
               <select
                 value={viewMode}
-                onChange={(e) => setViewMode(e.target.value as 'daily' | 'monthly' | 'stats')}
+                onChange={(e) => setViewMode(e.target.value as 'daily' | 'monthly' | 'stats' | 'quick')}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
+                <option value="quick">Quick Actions</option>
                 <option value="daily">Daily View</option>
                 <option value="monthly">Monthly View</option>
               </select>
@@ -335,130 +359,170 @@ const Attendance: React.FC = () => {
         </div>
       </div>
 
-      {/* Attendance Records */}
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Attendance Records - {new Date(selectedDate).toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-          </h3>
+      {/* Quick Actions View */}
+      {viewMode === 'quick' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Quick Attendance Actions</h3>
+            <p className="text-gray-600 mb-6">Select a teacher to quickly mark their check-in and check-out times.</p>
+            
+            {state.teachers.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {state.teachers.map(teacher => (
+                  <AttendanceQuickActions
+                    key={teacher.id}
+                    teacher={teacher}
+                    onAttendanceUpdate={handleAttendanceUpdate}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <User className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No teachers found</h3>
+                <p className="text-gray-500">Add teachers first to manage their attendance.</p>
+              </div>
+            )}
+          </div>
         </div>
+      )}
 
-        {filteredRecords.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Teacher
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Check In
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Check Out
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Working Hours
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Notes
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredRecords.map((record) => (
-                  <tr key={record.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                          <span className="text-green-600 font-semibold">
-                            {record.teacher.name.charAt(0)}
+      {/* Traditional Attendance Records View */}
+      {(viewMode === 'daily' || viewMode === 'monthly') && (
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Attendance Records - {viewMode === 'daily' ? new Date(selectedDate).toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              }) : 'All Records'}
+            </h3>
+          </div>
+
+          {filteredRecords.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Teacher
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Check In
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Check Out
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Working Hours
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Location
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Notes
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredRecords.map((record) => (
+                    <tr key={record.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                            <span className="text-green-600 font-semibold">
+                              {record.teacher.name.charAt(0)}
+                            </span>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {record.teacher.name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {record.teacher.email}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {new Date(record.date).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
+                          {getStatusIcon(record.status)}
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(record.status)}`}>
+                            {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
                           </span>
                         </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {record.teacher.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {record.teacher.email}
-                          </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center text-sm text-gray-900">
+                          <Timer className="w-4 h-4 mr-1 text-gray-400" />
+                          {record.checkInTime || '-'}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(record.status)}
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(record.status)}`}>
-                          {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-900">
-                        <Timer className="w-4 h-4 mr-1 text-gray-400" />
-                        {record.checkInTime || '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-900">
-                        <Timer className="w-4 h-4 mr-1 text-gray-400" />
-                        {record.checkOutTime || '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {record.workingHours ? `${record.workingHours}h` : '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-900">
-                        <MapPin className="w-4 h-4 mr-1 text-gray-400" />
-                        {record.location || '-'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900 max-w-xs truncate">
-                        {record.notes || '-'}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Clock className="w-8 h-8 text-gray-400" />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center text-sm text-gray-900">
+                          <Timer className="w-4 h-4 mr-1 text-gray-400" />
+                          {record.checkOutTime || '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {record.workingHours ? `${record.workingHours}h` : '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center text-sm text-gray-900">
+                          <MapPin className="w-4 h-4 mr-1 text-gray-400" />
+                          {record.location || '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900 max-w-xs truncate">
+                          {record.notes || '-'}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No attendance records found</h3>
-            <p className="text-gray-500 mb-6">
-              {searchTerm || selectedTeacher !== 'all' 
-                ? 'Try adjusting your search or filter criteria' 
-                : 'No attendance has been marked for the selected date'
-              }
-            </p>
-            <button
-              onClick={handleMarkAttendance}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Mark Attendance
-            </button>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No attendance records found</h3>
+              <p className="text-gray-500 mb-6">
+                {searchTerm || selectedTeacher !== 'all' 
+                  ? 'Try adjusting your search or filter criteria' 
+                  : 'No attendance has been marked for the selected date'
+                }
+              </p>
+              <button
+                onClick={handleMarkAttendance}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Mark Attendance
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

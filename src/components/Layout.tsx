@@ -11,10 +11,13 @@ import {
   Search,
   GraduationCap,
   ChevronDown,
-  Clock
+  Clock,
+  LogOut,
+  User
 } from 'lucide-react';
 import GlobalSearch from './GlobalSearch';
 import { Student, Teacher } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -25,6 +28,8 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, currentPage, onPageChange, onNavigateToDetails }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const { state: authState, logout } = useAuth();
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -56,6 +61,11 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onPageChange, on
       // Fallback: navigate to the appropriate page
       onPageChange(type === 'student' ? 'students' : 'teachers');
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    setShowUserMenu(false);
   };
 
   return (
@@ -119,6 +129,21 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onPageChange, on
             );
           })}
         </nav>
+
+        {/* User Info in Sidebar */}
+        <div className="p-4 border-t border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+              <User className="w-4 h-4 text-blue-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {authState.user?.name || 'Admin User'}
+              </p>
+              <p className="text-xs text-gray-500 truncate">Administrator</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Main content area */}
@@ -155,14 +180,42 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onPageChange, on
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
               </button>
 
-              {/* Profile */}
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-                <div className="hidden sm:block">
-                  <p className="text-sm font-medium text-gray-900">Admin User</p>
-                  <p className="text-xs text-gray-500">Administrator</p>
-                </div>
-                <ChevronDown className="w-4 h-4 text-gray-400" />
+              {/* Profile Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <User className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div className="hidden sm:block text-left">
+                    <p className="text-sm font-medium text-gray-900">
+                      {authState.user?.name || 'Admin User'}
+                    </p>
+                    <p className="text-xs text-gray-500">Administrator</p>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                </button>
+
+                {/* Dropdown Menu */}
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                    <div className="px-4 py-2 border-b border-gray-100">
+                      <p className="text-sm font-medium text-gray-900">
+                        {authState.user?.name || 'Admin User'}
+                      </p>
+                      <p className="text-xs text-gray-500">{authState.user?.email}</p>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sign Out
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -175,6 +228,14 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onPageChange, on
           </div>
         </main>
       </div>
+
+      {/* Click outside to close user menu */}
+      {showUserMenu && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowUserMenu(false)}
+        />
+      )}
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -9,12 +10,16 @@ import Invoices from './components/Invoices';
 import FeeStructure from './components/FeeStructure';
 import StudentView from './components/StudentView';
 import TeacherView from './components/TeacherView';
+import HomePage from './components/HomePage';
+import LoginPage from './components/LoginPage';
 import { Student, Teacher } from './types';
 
-function App() {
+const AppContent: React.FC = () => {
+  const { state: authState } = useAuth();
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
   const [viewingTeacher, setViewingTeacher] = useState<Teacher | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
 
   const handleNavigateToDetails = (type: 'student' | 'teacher', item: Student | Teacher) => {
     if (type === 'student') {
@@ -54,7 +59,6 @@ function App() {
             student={viewingStudent}
             onClose={() => handleBackToList('student')}
             onEdit={() => {
-              // Handle edit - you can implement this based on your existing edit flow
               setCurrentPage('students');
             }}
           />
@@ -65,7 +69,6 @@ function App() {
             teacher={viewingTeacher}
             onClose={() => handleBackToList('teacher')}
             onEdit={() => {
-              // Handle edit - you can implement this based on your existing edit flow
               setCurrentPage('teachers');
             }}
           />
@@ -75,6 +78,27 @@ function App() {
     }
   };
 
+  // Show loading screen while checking authentication
+  if (authState.loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!authState.isAuthenticated) {
+    if (showLogin) {
+      return <LoginPage onBack={() => setShowLogin(false)} />;
+    }
+    return <HomePage onLogin={() => setShowLogin(true)} />;
+  }
+
+  // Show main application if authenticated
   return (
     <AppProvider>
       <Layout 
@@ -85,6 +109,14 @@ function App() {
         {renderCurrentPage()}
       </Layout>
     </AppProvider>
+  );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
