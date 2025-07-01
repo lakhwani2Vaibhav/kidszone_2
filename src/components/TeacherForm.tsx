@@ -18,7 +18,7 @@ const TeacherForm: React.FC<TeacherFormProps> = ({ teacher, onSave, onCancel }) 
     dateOfBirth: '',
     dateOfJoining: '',
     fatherName: '',
-    verificationCardType: '' as 'aadhar' | 'pan' | '',
+    verificationCardType: 'aadhar' as 'aadhar' | 'pan',
     verificationCardNumber: '',
     mobileNumber: '',
     emergencyNumber: '',
@@ -291,7 +291,6 @@ const TeacherForm: React.FC<TeacherFormProps> = ({ teacher, onSave, onCancel }) 
                   errors.verificationCardType ? 'border-red-500' : 'border-gray-300'
                 }`}
               >
-                <option value="">Select card type</option>
                 <option value="aadhar">Aadhar Card</option>
                 <option value="pan">PAN Card</option>
               </select>
