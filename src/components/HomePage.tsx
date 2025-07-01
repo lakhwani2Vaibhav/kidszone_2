@@ -100,7 +100,7 @@ const HomePage: React.FC<HomePageProps> = ({ onLogin }) => {
                 onClick={onLogin}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
-                Admin Login
+                Login
               </button>
             </div>
 
@@ -136,7 +136,7 @@ const HomePage: React.FC<HomePageProps> = ({ onLogin }) => {
                   onClick={onLogin}
                   className="flex items-center justify-center px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 font-semibold text-lg shadow-lg"
                 >
-                  Access Admin Panel
+                  Access Management System
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </button>
                 <a
