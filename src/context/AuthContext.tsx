@@ -56,7 +56,7 @@ const AuthContext = createContext<{
   state: AuthState;
   dispatch: React.Dispatch<AuthAction>;
   login: (username: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   clearError: () => void;
 } | null>(null);
 
@@ -82,10 +82,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('authUser');
-    dispatch({ type: 'LOGOUT' });
+  const logout = async () => {
+    try {
+      // Try to call logout API
+      await authApi.logout();
+    } catch (error) {
+      // Continue with logout even if API call fails
+      console.error('Logout API error:', error);
+    } finally {
+      // Always clear local storage and state
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('authUser');
+      dispatch({ type: 'LOGOUT' });
+    }
   };
 
   const clearError = () => {

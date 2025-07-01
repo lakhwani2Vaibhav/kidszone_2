@@ -63,9 +63,16 @@ const Layout: React.FC<LayoutProps> = ({ children, currentPage, onPageChange, on
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    setShowUserMenu(false);
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowUserMenu(false);
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force logout even if API call fails
+      logout();
+      setShowUserMenu(false);
+    }
   };
 
   return (

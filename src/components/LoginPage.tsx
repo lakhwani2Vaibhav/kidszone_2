@@ -67,7 +67,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack }) => {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
               <GraduationCap className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Admin Login</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Login</h1>
             <p className="text-gray-600">Access Kid's Zone Academy Management System</p>
           </div>
 
@@ -78,7 +78,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack }) => {
               <div>
                 <h3 className="text-sm font-semibold text-blue-900">Secure Access</h3>
                 <p className="text-xs text-blue-700 mt-1">
-                  This is a secure admin portal. Only authorized personnel can access the system.
+                  This is a secure portal. Only authorized personnel can access the system.
                 </p>
               </div>
             </div>
