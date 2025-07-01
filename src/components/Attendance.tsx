@@ -30,11 +30,25 @@ const Attendance: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedTeacher, setSelectedTeacher] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'daily' | 'monthly' | 'stats' | 'quick'>('quick');
+  const [viewMode, setViewMode] = useState<'quick' | 'daily' | 'monthly' | 'stats'>('quick');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadAttendanceData();
+    
+    // Set up auto-checkout at midnight
+    const now = new Date();
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0);
+    const timeUntilMidnight = midnight.getTime() - now.getTime();
+    
+    const autoCheckoutTimer = setTimeout(() => {
+      handleAutoCheckout();
+      // Set up daily interval for auto-checkout
+      setInterval(handleAutoCheckout, 24 * 60 * 60 * 1000);
+    }, timeUntilMidnight);
+
+    return () => clearTimeout(autoCheckoutTimer);
   }, []);
 
   const loadAttendanceData = async () => {
@@ -44,10 +58,34 @@ const Attendance: React.FC = () => {
       setAttendanceRecords(response.data);
     } catch (error) {
       console.error('Error loading attendance data:', error);
-      // Generate mock data for demonstration
       generateMockData();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAutoCheckout = async () => {
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      
+      const response = await attendanceApi.getByDate(yesterdayStr);
+      const incompleteAttendance = response.data.filter(att => 
+        att.checkInTime && !att.checkOutTime
+      );
+      
+      for (const attendance of incompleteAttendance) {
+        await attendanceApi.checkOut(attendance.teacherId, {
+          notes: 'Auto checkout at midnight'
+        });
+      }
+      
+      if (incompleteAttendance.length > 0) {
+        loadAttendanceData();
+      }
+    } catch (error) {
+      console.error('Error during auto-checkout:', error);
     }
   };
 
@@ -55,17 +93,14 @@ const Attendance: React.FC = () => {
     const mockAttendance: AttendanceType[] = [];
     const today = new Date();
     
-    // Generate data for last 30 days
     for (let i = 0; i < 30; i++) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
       
       state.teachers.forEach((teacher, index) => {
-        // Skip weekends
         if (date.getDay() === 0 || date.getDay() === 6) return;
         
-        // Random attendance pattern
         const random = Math.random();
         let status: 'present' | 'absent' | 'late' | 'half-day';
         let checkInTime = '';
@@ -130,65 +165,27 @@ const Attendance: React.FC = () => {
     absentToday: state.teachers.length - todayRecords.length,
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'present':
-        return 'bg-green-100 text-green-800';
-      case 'late':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'absent':
-        return 'bg-red-100 text-red-800';
-      case 'half-day':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'present':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'late':
-        return <AlertCircle className="w-4 h-4 text-yellow-600" />;
-      case 'absent':
-        return <XCircle className="w-4 h-4 text-red-600" />;
-      case 'half-day':
-        return <Clock className="w-4 h-4 text-blue-600" />;
-      default:
-        return <Clock className="w-4 h-4 text-gray-600" />;
-    }
-  };
-
-  const handleMarkAttendance = () => {
-    setShowForm(true);
-  };
-
-  const handleSaveAttendance = (attendance: Omit<AttendanceType, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newAttendance: AttendanceType = {
-      ...attendance,
-      id: `${attendance.teacherId}-${attendance.date}-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    setAttendanceRecords(prev => [...prev, newAttendance]);
-    setShowForm(false);
+  const handleAttendanceUpdate = () => {
+    loadAttendanceData();
   };
 
   const exportAttendance = () => {
-    // In a real app, this would generate and download a CSV/Excel file
     alert('Export functionality would be implemented here');
-  };
-
-  const handleAttendanceUpdate = () => {
-    loadAttendanceData();
   };
 
   if (showForm) {
     return (
       <AttendanceForm
-        onSave={handleSaveAttendance}
+        onSave={(attendance) => {
+          const newAttendance: AttendanceType = {
+            ...attendance,
+            id: `${attendance.teacherId}-${attendance.date}-${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          setAttendanceRecords(prev => [...prev, newAttendance]);
+          setShowForm(false);
+        }}
         onCancel={() => setShowForm(false)}
       />
     );
@@ -225,13 +222,6 @@ const Attendance: React.FC = () => {
           >
             <Download className="w-4 h-4 mr-2" />
             Export
-          </button>
-          <button
-            onClick={handleMarkAttendance}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Mark Attendance
           </button>
         </div>
       </div>
@@ -311,7 +301,7 @@ const Attendance: React.FC = () => {
               <Calendar className="w-5 h-5 text-gray-400" />
               <select
                 value={viewMode}
-                onChange={(e) => setViewMode(e.target.value as 'daily' | 'monthly' | 'stats' | 'quick')}
+                onChange={(e) => setViewMode(e.target.value as 'quick' | 'daily' | 'monthly' | 'stats')}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="quick">Quick Actions</option>
@@ -461,8 +451,16 @@ const Attendance: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-2">
-                          {getStatusIcon(record.status)}
-                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(record.status)}`}>
+                          {record.status === 'present' && <CheckCircle className="w-4 h-4 text-green-600" />}
+                          {record.status === 'late' && <AlertCircle className="w-4 h-4 text-yellow-600" />}
+                          {record.status === 'absent' && <XCircle className="w-4 h-4 text-red-600" />}
+                          {record.status === 'half-day' && <Clock className="w-4 h-4 text-blue-600" />}
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                            record.status === 'present' ? 'bg-green-100 text-green-800' :
+                            record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
+                            record.status === 'absent' ? 'bg-red-100 text-red-800' :
+                            'bg-blue-100 text-blue-800'
+                          }`}>
                             {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
                           </span>
                         </div>
@@ -512,13 +510,6 @@ const Attendance: React.FC = () => {
                   : 'No attendance has been marked for the selected date'
                 }
               </p>
-              <button
-                onClick={handleMarkAttendance}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Mark Attendance
-              </button>
             </div>
           )}
         </div>

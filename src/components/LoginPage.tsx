@@ -167,17 +167,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onBack }) => {
               )}
             </button>
           </form>
-
-          {/* Demo Credentials */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Demo Credentials</h3>
-              <div className="text-xs text-gray-600 space-y-1">
-                <p><strong>Username:</strong> Shubham</p>
-                <p><strong>Password:</strong> $Shubh@912513</p>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}

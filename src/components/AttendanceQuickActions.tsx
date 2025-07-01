@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Clock, CheckCircle, XCircle, MapPin, MessageSquare, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Clock, CheckCircle, XCircle, MapPin, MessageSquare, User, Timer } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { attendanceApi } from '../services/api';
 import { Teacher } from '../types';
@@ -17,15 +17,27 @@ const AttendanceQuickActions: React.FC<AttendanceQuickActionsProps> = ({
   const [loading, setLoading] = useState<'checkin' | 'checkout' | null>(null);
   const [showCheckInForm, setShowCheckInForm] = useState(false);
   const [showCheckOutForm, setShowCheckOutForm] = useState(false);
+  const [todayAttendance, setTodayAttendance] = useState<any>(null);
   const [formData, setFormData] = useState({
     location: 'School Campus',
     notes: '',
   });
 
-  // Check if teacher has already checked in today
   const today = new Date().toISOString().split('T')[0];
-  const [hasCheckedIn, setHasCheckedIn] = useState(false);
-  const [hasCheckedOut, setHasCheckedOut] = useState(false);
+
+  useEffect(() => {
+    checkTodayAttendance();
+  }, [teacher.id]);
+
+  const checkTodayAttendance = async () => {
+    try {
+      const response = await attendanceApi.getByDate(today);
+      const teacherAttendance = response.data.find(att => att.teacherId === teacher.id);
+      setTodayAttendance(teacherAttendance || null);
+    } catch (error) {
+      console.error('Error checking today attendance:', error);
+    }
+  };
 
   const handleCheckIn = async () => {
     if (showCheckInForm) {
@@ -36,13 +48,11 @@ const AttendanceQuickActions: React.FC<AttendanceQuickActionsProps> = ({
           notes: formData.notes.trim() || undefined,
         });
         
-        dispatch({ type: 'ADD_ATTENDANCE', payload: response.data });
-        setHasCheckedIn(true);
+        setTodayAttendance(response.data);
         setShowCheckInForm(false);
         setFormData({ location: 'School Campus', notes: '' });
         onAttendanceUpdate();
         
-        // Show success message
         dispatch({ 
           type: 'SET_ERROR', 
           payload: `✅ ${teacher.name} checked in successfully!` 
@@ -70,13 +80,11 @@ const AttendanceQuickActions: React.FC<AttendanceQuickActionsProps> = ({
           notes: formData.notes.trim() || undefined,
         });
         
-        dispatch({ type: 'UPDATE_ATTENDANCE', payload: response.data });
-        setHasCheckedOut(true);
+        setTodayAttendance(response.data);
         setShowCheckOutForm(false);
         setFormData({ location: 'School Campus', notes: '' });
         onAttendanceUpdate();
         
-        // Show success message
         dispatch({ 
           type: 'SET_ERROR', 
           payload: `✅ ${teacher.name} checked out successfully!` 
@@ -107,11 +115,16 @@ const AttendanceQuickActions: React.FC<AttendanceQuickActionsProps> = ({
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const hasCheckedIn = todayAttendance && todayAttendance.checkInTime;
+  const hasCheckedOut = todayAttendance && todayAttendance.checkOutTime;
+  const canCheckOut = hasCheckedIn && !hasCheckedOut;
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+      {/* Teacher Header */}
       <div className="flex items-center space-x-3 mb-6">
-        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-          <User className="w-5 h-5 text-green-600" />
+        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+          <User className="w-6 h-6 text-white" />
         </div>
         <div>
           <h3 className="text-lg font-semibold text-gray-900">{teacher.name}</h3>
@@ -119,15 +132,51 @@ const AttendanceQuickActions: React.FC<AttendanceQuickActionsProps> = ({
         </div>
       </div>
 
-      {/* Quick Action Buttons */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      {/* Today's Status */}
+      <div className="bg-gray-50 rounded-lg p-4 mb-6">
+        <h4 className="text-sm font-semibold text-gray-900 mb-3">Today's Status</h4>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-center space-x-2">
+            <div className={`w-3 h-3 rounded-full ${hasCheckedIn ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+            <span className="text-sm text-gray-600">Check In</span>
+            {hasCheckedIn && (
+              <span className="text-xs font-medium text-green-600">
+                {todayAttendance.checkInTime}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className={`w-3 h-3 rounded-full ${hasCheckedOut ? 'bg-red-500' : 'bg-gray-300'}`}></div>
+            <span className="text-sm text-gray-600">Check Out</span>
+            {hasCheckedOut && (
+              <span className="text-xs font-medium text-red-600">
+                {todayAttendance.checkOutTime}
+              </span>
+            )}
+          </div>
+        </div>
+        
+        {todayAttendance && todayAttendance.workingHours > 0 && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <div className="flex items-center space-x-2">
+              <Timer className="w-4 h-4 text-blue-500" />
+              <span className="text-sm font-medium text-gray-900">
+                Working Hours: {todayAttendance.workingHours}h
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <div className="grid grid-cols-2 gap-3 mb-6">
         <button
           onClick={handleCheckIn}
           disabled={loading === 'checkin' || hasCheckedIn}
-          className={`flex items-center justify-center px-4 py-3 rounded-lg font-medium transition-colors ${
+          className={`flex items-center justify-center px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
             hasCheckedIn
               ? 'bg-green-100 text-green-800 cursor-not-allowed'
-              : 'bg-green-600 text-white hover:bg-green-700'
+              : 'bg-green-600 text-white hover:bg-green-700 hover:shadow-lg transform hover:-translate-y-0.5'
           } ${loading === 'checkin' ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {loading === 'checkin' ? (
@@ -140,13 +189,13 @@ const AttendanceQuickActions: React.FC<AttendanceQuickActionsProps> = ({
 
         <button
           onClick={handleCheckOut}
-          disabled={loading === 'checkout' || !hasCheckedIn || hasCheckedOut}
-          className={`flex items-center justify-center px-4 py-3 rounded-lg font-medium transition-colors ${
-            !hasCheckedIn || hasCheckedOut
+          disabled={loading === 'checkout' || !canCheckOut}
+          className={`flex items-center justify-center px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+            !canCheckOut
               ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
               : hasCheckedOut
               ? 'bg-red-100 text-red-800 cursor-not-allowed'
-              : 'bg-red-600 text-white hover:bg-red-700'
+              : 'bg-red-600 text-white hover:bg-red-700 hover:shadow-lg transform hover:-translate-y-0.5'
           } ${loading === 'checkout' ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {loading === 'checkout' ? (
@@ -159,7 +208,7 @@ const AttendanceQuickActions: React.FC<AttendanceQuickActionsProps> = ({
       </div>
 
       {/* Check In Form */}
-      {showCheckInForm && (
+      {showCheckInForm && !hasCheckedIn && (
         <div className="border-t border-gray-200 pt-6">
           <h4 className="text-md font-semibold text-gray-900 mb-4">Check In Details</h4>
           <div className="space-y-4">
@@ -224,7 +273,7 @@ const AttendanceQuickActions: React.FC<AttendanceQuickActionsProps> = ({
       )}
 
       {/* Check Out Form */}
-      {showCheckOutForm && (
+      {showCheckOutForm && canCheckOut && (
         <div className="border-t border-gray-200 pt-6">
           <h4 className="text-md font-semibold text-gray-900 mb-4">Check Out Details</h4>
           <div className="space-y-4">
@@ -270,22 +319,22 @@ const AttendanceQuickActions: React.FC<AttendanceQuickActionsProps> = ({
         </div>
       )}
 
-      {/* Status Display */}
-      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600">Today's Status:</span>
-          <div className="flex items-center space-x-4">
-            <div className={`flex items-center space-x-1 ${hasCheckedIn ? 'text-green-600' : 'text-gray-400'}`}>
-              <CheckCircle className="w-4 h-4" />
-              <span>Check In</span>
+      {/* Completion Message */}
+      {hasCheckedIn && hasCheckedOut && (
+        <div className="border-t border-gray-200 pt-6">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <span className="text-sm font-medium text-green-900">
+                Attendance completed for today
+              </span>
             </div>
-            <div className={`flex items-center space-x-1 ${hasCheckedOut ? 'text-red-600' : 'text-gray-400'}`}>
-              <XCircle className="w-4 h-4" />
-              <span>Check Out</span>
-            </div>
+            <p className="text-xs text-green-700 mt-1">
+              Working hours: {todayAttendance.workingHours}h
+            </p>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
